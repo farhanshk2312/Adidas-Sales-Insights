@@ -1,0 +1,573 @@
+-------------------------------------
+-- Calculated Table: 'Measures Table'
+-------------------------------------
+TABLE 'Measures Table' = DATATABLE("Placeholder", STRING, {{"Keep"}})
+
+---------------------------
+-- Measure: [Overall Sales]
+---------------------------
+MEASURE 'Measures Table'[Overall Sales] = Sum('Data Sales Adidas'[Sales])
+    , FormatString = "\$#,0.00;(\$#,0.00);\$#,0.00"
+
+--------------------------------
+-- Measure: [Overall Units Sold]
+--------------------------------
+MEASURE 'Measures Table'[Overall Units Sold] = Sum('Data Sales Adidas'[Units Sold])
+    , FormatString = "0"
+
+--------------------------------
+-- Measure: [Avg Price Per Unit]
+--------------------------------
+MEASURE 'Measures Table'[Avg Price Per Unit] = AVERAGE('Data Sales Adidas'[Price per Unit])
+    , FormatString = "\$#,0.###############;(\$#,0.###############);\$#,0.###############"
+
+--------------------------------------
+-- Measure: [Overall Operating Profit]
+--------------------------------------
+MEASURE 'Measures Table'[Overall Operating Profit] = Sum('Data Sales Adidas'[Operating Profit])
+    , FormatString = "\$#,0.00;(\$#,0.00);\$#,0.00"
+
+-----------------------------------
+-- Measure: [10-day Rolling Profit]
+-----------------------------------
+MEASURE 'Measures Table'[10-day Rolling Profit] = 
+    CALCULATE(
+        [Overall Operating Profit],
+        DATESINPERIOD(
+            'Calendar'[Date],
+            MAX(
+                'Calendar'[Date]
+            ),
+            -10,
+            DAY
+        )
+    )
+
+-----------------------------------
+-- Measure: [90-day Rolling Profit]
+-----------------------------------
+MEASURE 'Measures Table'[90-day Rolling Profit] = 
+    CALCULATE(
+        [Overall Operating Profit],
+        DATESINPERIOD(
+            'Calendar'[Date],
+            LASTDATE(
+                'Calendar'[Date]
+            ),
+            -90,
+            DAY
+        )
+    )
+
+----------------------------
+-- Measure: [Adjusted Price]
+----------------------------
+MEASURE 'Measures Table'[Adjusted Price] = [Avg Price Per Unit] * (1 + 'Price Adjustment (%)'[Price Adjustment (%) Value])
+    , FormatString = "\$#,0.###############;(\$#,0.###############);\$#,0.###############"
+
+----------------------------
+-- Measure: [Adjusted Sales]
+----------------------------
+MEASURE 'Measures Table'[Adjusted Sales] = 
+    SUMX(
+        'Data Sales Adidas',
+        'Data Sales Adidas'[Units Sold]
+        *
+       [Adjusted Price])
+    , FormatString = "\$#,0.###############;(\$#,0.###############);\$#,0.###############"
+
+---------------------------------------
+-- Measure: [Adjusted Operating Profit]
+---------------------------------------
+MEASURE 'Measures Table'[Adjusted Operating Profit] = 
+    SUMX(
+        'Data Sales Adidas',
+        [Adjusted Sales]
+        *
+       'Data Sales Adidas'[Operating Margin])
+    , FormatString = "\$#,0.###############;(\$#,0.###############);\$#,0.###############"
+
+-----------------------------
+-- Measure: [Total Retailers]
+-----------------------------
+MEASURE 'Measures Table'[Total Retailers] = 
+    DISTINCTCOUNT(
+        'Data Sales Adidas'[Retailer]
+    )
+    , FormatString = "0"
+
+----------------------------------------
+-- Measure: [Average Sales per Retailer]
+----------------------------------------
+MEASURE 'Measures Table'[Average Sales per Retailer] = 
+    DIVIDE(
+        [Overall Sales], 
+        [Total Retailers]
+    )
+
+---------------------------------------------
+-- Measure: [Previous Month Operating Profit]
+---------------------------------------------
+MEASURE 'Measures Table'[Previous Month Operating Profit] = 
+    CALCULATE(
+        [Overall Operating Profit],
+        DATEADD(
+            'Calendar'[Date],
+            -1,
+            MONTH
+        )
+    )
+
+----------------------------------
+-- Measure: [Previous Month Sales]
+----------------------------------
+MEASURE 'Measures Table'[Previous Month Sales] = 
+    CALCULATE(
+        [Overall Sales],
+        DATEADD(
+            'Calendar'[Date],
+            -1,
+            MONTH
+        )
+    )
+
+---------------------------------------
+-- Measure: [Operating Profit Growth %]
+---------------------------------------
+MEASURE 'Measures Table'[Operating Profit Growth %] = DIVIDE([Overall Operating Profit] - [Previous Month Operating Profit], [Previous Month Operating Profit], 0)
+
+-------------------------------------------
+-- Measure: [Operating Profit Growth Arrow]
+-------------------------------------------
+MEASURE 'Measures Table'[Operating Profit Growth Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = [Operating Profit Growth %]
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+-------------------------------------------
+-- Measure: [Overall Profit Same Period LY]
+-------------------------------------------
+MEASURE 'Measures Table'[Overall Profit Same Period LY] = 
+    CALCULATE(
+        [Overall Operating Profit],
+        DATEADD(
+            'Calendar'[Date],
+            -1,
+            YEAR))
+
+---------------------------------
+-- Measure: [Profit Growth vs LY]
+---------------------------------
+MEASURE 'Measures Table'[Profit Growth vs LY] = [Overall Operating Profit] - [Overall Profit Same Period LY]
+
+---------------------------------
+-- Measure: [Profit Growth YOY %]
+---------------------------------
+MEASURE 'Measures Table'[Profit Growth YOY %] = DIVIDE([Overall Operating Profit] - [Overall Profit Same Period LY], [Overall Profit Same Period LY])
+
+-------------------------------------
+-- Measure: [Profit Growth YOY Arrow]
+-------------------------------------
+MEASURE 'Measures Table'[Profit Growth YOY Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = [Profit Growth YOY %]
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+------------------------------
+-- Measure: [Profit Sparkline]
+------------------------------
+MEASURE 'Measures Table'[Profit Sparkline] = 
+    // Static line color - use %23 instead of # for Firefox compatibility (Measure Derived from Eldersveld Modified by Kolosko)
+    VAR LineColour = "%2323E2D7"
+    VAR PointColour = "%23A8BBA3"
+    VAR Defs = "<defs>
+        <linearGradient id='grad' x1='0' y1='25' x2='0' y2='50' gradientUnits='userSpaceOnUse'>
+            <stop stop-color='#23E2D7' offset='0' />
+            <stop stop-color='#23E2D7' offset='0.3' />
+            <stop stop-color='#67C090' offset='1' />
+        </linearGradient>
+    </defs>"
+    // "Date" field used in this example along the X axis
+    VAR XMinDate = MIN('Calendar'[MonthStart])
+    VAR XMaxDate = MAX('Calendar'[MonthStart])
+    
+    // Obtain overall min and overall max measure values when evaluated for each date
+    VAR YMinValue = MINX(Values('Calendar'[MonthStart]),CALCULATE([Overall Operating Profit]))
+    VAR YMaxValue = MAXX(Values('Calendar'[MonthStart]),CALCULATE([Overall Operating Profit]))
+    
+    // Build table of X & Y coordinates and fit to 50 x 150 viewbox
+    VAR SparklineTable = ADDCOLUMNS(
+        SUMMARIZE('Calendar','Calendar'[MonthStart]),
+            "X",INT(150 * DIVIDE('Calendar'[MonthStart] - XMinDate, XMaxDate - XMinDate)),
+            "Y",INT(50 * DIVIDE([Overall Operating Profit] - YMinValue,YMaxValue - YMinValue)))
+    
+    // Concatenate X & Y coordinates to build the sparkline
+    VAR Lines = CONCATENATEX(SparklineTable,[X] & "," & 50-[Y]," ", 'Calendar'[MonthStart])
+    
+    // Last data points on the line
+    VAR LastSparkYValue = MAXX( FILTER(SparklineTable, 'Calendar'[MonthStart] = XMaxDate), [Y])
+    VAR LastSparkXValue = MAXX( FILTER(SparklineTable, 'Calendar'[MonthStart] = XMaxDate), [X])
+    
+    // Add to SVG, and verify Data Category is set to Image URL for this measure
+    VAR SVGImageURL = 
+        "data:image/svg+xml;utf8," & 
+        --- gradient---
+        "<svg xmlns='http://www.w3.org/2000/svg' x='0px' y='0px' viewBox='-7 -7 164 64'>" & Defs & 
+         "<polyline fill='url(#grad)' fill-opacity='0.3' stroke='transparent' 
+          stroke-width='0' points=' 0 50 " & Lines & 
+          " 150 150 Z '/>" &
+        --- Lines---
+        "<polyline 
+            fill='transparent' stroke='" & LineColour & "' 
+            stroke-linecap='round' stroke-linejoin='round' 
+            stroke-width='1' points=' " & Lines & 
+          " '/>" &
+        --- Last Point---
+            "<circle cx='"& LastSparkXValue & "' cy='" & 50 - LastSparkYValue & "' r='4' stroke='" & LineColour & "' stroke-width='1' fill='" & PointColour & "' />" &
+            "</svg>"
+    RETURN SVGImageURL
+
+-------------------------------------
+-- Measure: [Operating Profit Target]
+-------------------------------------
+MEASURE 'Measures Table'[Operating Profit Target] = [Previous Month Operating Profit] * 1.1
+
+-------------------------------
+-- Measure: [Profit Target Gap]
+-------------------------------
+MEASURE 'Measures Table'[Profit Target Gap] = [Overall Operating Profit] - [Operating Profit Target]
+
+---------------------------
+-- Measure: [Quantity Sold]
+---------------------------
+MEASURE 'Measures Table'[Quantity Sold] = 
+    SUM(
+        'Data Sales Adidas'[Units Sold]
+    )
+    , FormatString = "0"
+
+----------------------------
+-- Measure: [Sales Growth %]
+----------------------------
+MEASURE 'Measures Table'[Sales Growth %] = DIVIDE([Overall Sales] - [Previous Month Sales], [Previous Month Sales])
+
+----------------------------------
+-- Measure: [Revenue Growth Arrow]
+----------------------------------
+MEASURE 'Measures Table'[Revenue Growth Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = [Sales Growth %]
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+----------------------------------
+-- Measure: [Sales Same Period LY]
+----------------------------------
+MEASURE 'Measures Table'[Sales Same Period LY] = 
+    CALCULATE(
+        [Overall Sales],
+        DATEADD(
+            'Calendar'[Date],
+            -1,
+            YEAR))
+
+--------------------------------
+-- Measure: [Sales Growth YOY %]
+--------------------------------
+MEASURE 'Measures Table'[Sales Growth YOY %] = DIVIDE([Overall Sales] - [Sales Same Period LY], [Sales Same Period LY])
+    , FormatString = "0%;-0%;0%"
+
+--------------------------------------
+-- Measure: [Revenue Growth YOY Arrow]
+--------------------------------------
+MEASURE 'Measures Table'[Revenue Growth YOY Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = [Sales Growth YOY %]
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+-----------------------------
+-- Measure: [Sales Sparkline]
+-----------------------------
+MEASURE 'Measures Table'[Sales Sparkline] = 
+    // Static line color - use %23 instead of # for Firefox compatibility (Measure Derived from Eldersveld Modified by Kolosko)
+    VAR LineColour = "%2323E2D7"
+    VAR PointColour = "%23A8BBA3"
+    VAR Defs = "<defs>
+        <linearGradient id='grad' x1='0' y1='25' x2='0' y2='50' gradientUnits='userSpaceOnUse'>
+            <stop stop-color='#23E2D7' offset='0' />
+            <stop stop-color='#23E2D7' offset='0.3' />
+            <stop stop-color='#67C090' offset='1' />
+        </linearGradient>
+    </defs>"
+    // "Date" field used in this example along the X axis
+    VAR XMinDate = MIN('Calendar'[MonthStart])
+    VAR XMaxDate = MAX('Calendar'[MonthStart])
+    
+    // Obtain overall min and overall max measure values when evaluated for each date
+    VAR YMinValue = MINX(Values('Calendar'[MonthStart]),CALCULATE([Overall Sales]))
+    VAR YMaxValue = MAXX(Values('Calendar'[MonthStart]),CALCULATE([Overall Sales]))
+    
+    // Build table of X & Y coordinates and fit to 50 x 150 viewbox
+    VAR SparklineTable = ADDCOLUMNS(
+        SUMMARIZE('Calendar','Calendar'[MonthStart]),
+            "X",INT(150 * DIVIDE('Calendar'[MonthStart] - XMinDate, XMaxDate - XMinDate)),
+            "Y",INT(50 * DIVIDE([Overall Sales] - YMinValue,YMaxValue - YMinValue)))
+    
+    // Concatenate X & Y coordinates to build the sparkline
+    VAR Lines = CONCATENATEX(SparklineTable,[X] & "," & 50-[Y]," ", 'Calendar'[MonthStart])
+    
+    // Last data points on the line
+    VAR LastSparkYValue = MAXX( FILTER(SparklineTable, 'Calendar'[MonthStart] = XMaxDate), [Y])
+    VAR LastSparkXValue = MAXX( FILTER(SparklineTable, 'Calendar'[MonthStart] = XMaxDate), [X])
+    
+    // Add to SVG, and verify Data Category is set to Image URL for this measure
+    VAR SVGImageURL = 
+        "data:image/svg+xml;utf8," & 
+        --- gradient---
+        "<svg xmlns='http://www.w3.org/2000/svg' x='0px' y='0px' viewBox='-7 -7 164 64'>" & Defs & 
+         "<polyline fill='url(#grad)' fill-opacity='0.05' stroke='transparent' 
+          stroke-width='0' points=' 0 50 " & Lines & 
+          " 150 150 Z '/>" &
+        --- Lines---
+        "<polyline 
+            fill='transparent' stroke='" & LineColour & "' 
+            stroke-linecap='round' stroke-linejoin='round' 
+            stroke-width='1' points=' " & Lines & 
+          " '/>" &
+        --- Last Point---
+            "<circle cx='"& LastSparkXValue & "' cy='" & 50 - LastSparkYValue & "' r='4' stroke='" & LineColour & "' stroke-width='2' fill='" & PointColour & "' />" &
+            "</svg>"
+    RETURN SVGImageURL
+
+--------------------------
+-- Measure: [Sales Target]
+--------------------------
+MEASURE 'Measures Table'[Sales Target] = [Previous Month Sales] * 1.1
+
+------------------------------------
+-- Measure: [Sales Target Gap Arrow]
+------------------------------------
+MEASURE 'Measures Table'[Sales Target Gap Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var salestargetgap = [Sales Target Gap %]
+    
+    RETURN
+    IF(salestargetgap < 0,
+     FORMAT(ROUND(salestargetgap * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(salestargetgap * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+-----------------------
+-- Measure: [YTD Sales]
+-----------------------
+MEASURE 'Measures Table'[YTD Sales] = 
+    CALCULATE(
+        [Overall Sales],
+        DATESYTD(
+            'Calendar'[Date]
+        )
+    )
+
+----------------------------------
+-- Measure: [YTD Operating Profit]
+----------------------------------
+MEASURE 'Measures Table'[YTD Operating Profit] = 
+    CALCULATE(
+        [Overall Operating Profit],
+        DATESYTD(
+            'Calendar'[Date]
+        )
+    )
+
+------------------------------
+-- Measure: [sales target gap]
+------------------------------
+MEASURE 'Measures Table'[sales target gap] = [Overall Sales] - [Sales Target]
+
+--------------------------------
+-- Measure: [Sales Target Gap %]
+--------------------------------
+MEASURE 'Measures Table'[Sales Target Gap %] = DIVIDE([Overall Sales] - [Sales Target], [Sales Target])
+    , FormatString = "0.00%;-0.00%;0.00%"
+
+-----------------------------
+-- Measure: [Prior YTD Sales]
+-----------------------------
+MEASURE 'Measures Table'[Prior YTD Sales] = 
+    CALCULATE (
+        [YTD Sales],
+        SAMEPERIODLASTYEAR ( 'Calendar'[Date] )
+    )
+
+------------------------------------
+-- Measure: [Sales Growth YTD Arrow]
+------------------------------------
+MEASURE 'Measures Table'[Sales Growth YTD Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = DIVIDE ( [YTD Sales] - [Prior YTD Sales], [Prior YTD Sales] )
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+---------------------------------------
+-- Measure: [Previous Month Units Sold]
+---------------------------------------
+MEASURE 'Measures Table'[Previous Month Units Sold] = 
+    CALCULATE(
+        [Overall Units Sold],
+        DATEADD(
+            'Calendar'[Date],
+            -1,
+            MONTH
+        )
+    )
+    , FormatString = "0"
+
+---------------------------------
+-- Measure: [Units Sold Growth %]
+---------------------------------
+MEASURE 'Measures Table'[Units Sold Growth %] = DIVIDE([Overall Units Sold] - [Previous Month Units Sold], [Previous Month Units Sold])
+
+---------------------------------------
+-- Measure: [Units Sold Same Period LY]
+---------------------------------------
+MEASURE 'Measures Table'[Units Sold Same Period LY] = 
+    CALCULATE(
+        [Overall Units Sold],
+        DATEADD(
+            'Calendar'[Date],
+            -1,
+            YEAR))
+    , FormatString = "0"
+
+-------------------------------------
+-- Measure: [Units Sold Growth YOY %]
+-------------------------------------
+MEASURE 'Measures Table'[Units Sold Growth YOY %] = DIVIDE([Overall Units Sold] - [Units Sold Same Period LY], [Units Sold Same Period LY])
+
+-----------------------------------------
+-- Measure: [Units Sold Growth YOY Arrow]
+-----------------------------------------
+MEASURE 'Measures Table'[Units Sold Growth YOY Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = [Units Sold Growth YOY %]
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+-------------------------------------
+-- Measure: [Units Sold Growth Arrow]
+-------------------------------------
+MEASURE 'Measures Table'[Units Sold Growth Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = [Units Sold Growth %]
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+------------------------
+-- Measure: [Total COGS]
+------------------------
+MEASURE 'Measures Table'[Total COGS] = 
+    SUM(
+        'Data Sales Adidas'[COGS]
+    )
+    , FormatString = "0"
+
+---------------------------------
+-- Measure: [Previous Month COGS]
+---------------------------------
+MEASURE 'Measures Table'[Previous Month COGS] = 
+    CALCULATE(
+        [Total COGS],
+        DATEADD(
+            'Calendar'[Date],
+            -1,
+            MONTH
+        )
+    )
+
+---------------------------
+-- Measure: [COGS Growth %]
+---------------------------
+MEASURE 'Measures Table'[COGS Growth %] = DIVIDE([Total COGS] - [Previous Month COGS], [Previous Month COGS])
+
+-------------------------------
+-- Measure: [COGS Growth Arrow]
+-------------------------------
+MEASURE 'Measures Table'[COGS Growth Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = [COGS Growth %]
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
+
+---------------------------------
+-- Measure: [COGS Same Period LY]
+---------------------------------
+MEASURE 'Measures Table'[COGS Same Period LY] = 
+    CALCULATE(
+        [Total COGS],
+        DATEADD(
+            'Calendar'[Date],
+            -1,
+            YEAR))
+
+-------------------------------
+-- Measure: [COGS Growth YOY %]
+-------------------------------
+MEASURE 'Measures Table'[COGS Growth YOY %] = DIVIDE([Total COGS] - [COGS Same Period LY], [COGS Same Period LY])
+
+-----------------------------------
+-- Measure: [COGS Growth YOY Arrow]
+-----------------------------------
+MEASURE 'Measures Table'[COGS Growth YOY Arrow] = 
+    var uparrow = UNICHAR(129093)
+    var downarrow = UNICHAR(129095)
+    var revenuegrowth = [COGS Growth YOY %]
+    
+    RETURN
+    IF(revenuegrowth < 0,
+     FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & downarrow,
+        FORMAT(ROUND(revenuegrowth * 100, 2), "0.00") & "%" & " " & uparrow
+    )
