@@ -1,4 +1,4 @@
-# Adidas Sales Performance Dashboard
+# Adidas Sales Performance
 
 Data Source: https://www.kaggle.com/datasets/heemalichaudhari/adidas-sales-dataset
 
